@@ -1,5 +1,8 @@
-VERSION := 1.0.0
 BUILD_TIME := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+GIT_TAG := $(shell git describe --tags --always --dirty)
+GIT_HASH := $(shell git rev-parse --short HEAD)
+VERSION := $(GIT_TAG)-$(GIT_HASH)
+
 .PHONY: all proto clean modules agent server release
 
 all: proto modules agent server dist
