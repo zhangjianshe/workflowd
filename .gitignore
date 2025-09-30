@@ -2,3 +2,4 @@
 ./wf-agent
 proto/*.pb.go
 ./dist
+.deb_staging
