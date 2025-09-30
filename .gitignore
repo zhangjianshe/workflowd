@@ -1,0 +1,4 @@
+./wf-server
+./wf-agent
+proto/*.pb.go
+./dist

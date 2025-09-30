@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+// NOTE: We define the Go package path here. The path below assumes
+// your go.mod is named 'workflowd' and the proto files are in 'proto'.
+option go_package = "workflowd/proto";
+
+// --- Message Definitions ---
+
+// Workflow represents the data structure for a task to be executed.
+message Workflow {
+  string id = 1;
+  string payload = 2; // e.g., JSON representation of steps
+}
+
+// Command is sent from the APIServer (Server) to the Agent (Client)
+message Command {
+  enum Type {
+    UNKNOWN = 0;
+    START = 1; // Start a new workflow
+    STOP = 2;  // Stop a running workflow
+  }
+  string workflow_id = 1;
+  Type type = 2;
+  string task_id =3;
+  string executable =5;
+  repeated string args=4;
+  string payload = 6; // Optional data related to the command
+}
+
+// Status is sent from the Agent (Client) back to the APIServer (Server)
+message Status {
+  enum State {
+    UNKNOWN = 0;
+    PENDING = 1;
+    RUNNING = 2;
+    COMPLETED = 3;
+    FAILED = 4;
+  }
+  string workflow_id = 1;
+  string task_id=2;
+  int64 timestamp = 3;
+  State state = 4;
+  string message = 5; // Detailed log message or error
+}
+
+
+// --- Service Definition ---
+
+// WorkflowService defines the gRPC service contract for real-time communication.
+service WorkflowService {
+  // ExecuteWorkflow is a bi-directional streaming RPC.
+  // The client sends Status updates. The server sends Command updates.
+  rpc ExecuteWorkflow (stream Status) returns (stream Command);
+}
