@@ -1,22 +1,17 @@
 package main
 
 import (
-	"flag" // <-- Added flag package
 	"fmt"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/peer"
 	"io"
 	"log"
 	"net"
-	"os" // <-- Added os package for exiting
+	"os"
 	"sync"
 	"time"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/peer" // <-- Required for retrieving client address
 	pb "workflowd/proto"
-)
-
-const (
-	port = ":50051"
 )
 
 // These variables are populated at link time by the Makefile's -ldflags.
@@ -141,7 +136,6 @@ func (s *server) sendCommands(
 	}
 }
 
-// Example function to send a command to a specific agent externally (optional)
 func (s *server) SendCommandToAgent(connID string, cmd *pb.Command) bool {
 	s.mu.Lock()
 	queue, ok := s.activeStreams[connID]
@@ -162,21 +156,51 @@ func (s *server) SendCommandToAgent(connID string, cmd *pb.Command) bool {
 	}
 }
 
-func main() {
-	// ----------------------------------------------------
-	// Version Flag Handling
-	// ----------------------------------------------------
-	showVersion := flag.Bool("version", false, "Print current version and exit")
-	flag.Parse()
+var rootCmd = &cobra.Command{
+	Use:   "wf-server",
+	Short: "workflow server for cangling.cn",
+	Long: `wf-server is a workflow server for cangling.cn,which  provides a server 
+            to dispatch execute a workflow`,
+	Run: func(cmd *cobra.Command, args []string) {
+		serverCmd.Run(cmd, args)
+	},
+}
 
-	if *showVersion {
-		fmt.Printf("APIServer Version: %s\n", Version)
-		fmt.Printf("Build Time: %s\n", BuildTime)
-		os.Exit(0)
+var serverCmd = &cobra.Command{
+	Use:   "server",
+	Short: "Start the SirServer grpc server",
+	Long:  `Starts the SirServer grpc server to serve workflow engine API endpoints.`,
+	Run:   runServer,
+}
+
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print the version number of wf-server",
+	Long:  `All software has versions. This is wf-server's.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("%s @ %s\n", Version, BuildTime)
+	},
+}
+
+func printBanner() {
+}
+
+var config Config
+
+func init() {
+	printBanner()
+
+	conf, err := GetConfig("")
+	if err != nil {
+		log.Fatalf("Error: %v\n", err)
 	}
-	// ----------------------------------------------------
+	config = conf
+	rootCmd.AddCommand(serverCmd)
+	rootCmd.AddCommand(versionCmd)
+}
 
-	lis, err := net.Listen("tcp", port)
+func runServer(cmd *cobra.Command, args []string) {
+	lis, err := net.Listen("tcp", config.Server.Port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -184,8 +208,16 @@ func main() {
 	s := grpc.NewServer()
 	pb.RegisterWorkflowServiceServer(s, newServer())
 
-	log.Printf("Mock APIServer running on %s", port)
+	log.Printf("wf-server running on %s", config.Server.Port)
 	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		log.Fatalf("failed to serve: %v", config.Server.Port)
+	}
+}
+
+func main() {
+
+	if err := rootCmd.Execute(); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
 	}
 }
